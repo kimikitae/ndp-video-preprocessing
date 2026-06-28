@@ -1,1 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NVMe-oF NDP for YOLO Video Preprocessing</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #21262d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --warn: #f0883e;
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --sans: 'Inter', -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 15px; line-height: 1.7; }
 
+  /* NAV */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(13,17,23,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex; align-items: center; gap: 2rem; height: 52px;
+  }
+  nav .logo { font-family: var(--mono); font-size: 13px; color: var(--accent); font-weight: 600; white-space: nowrap; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 13px; transition: color .15s; }
+  nav a:hover { color: var(--text); }
+  nav .spacer { flex: 1; }
+
+  /* HERO */
+  .hero {
+    padding: 5rem 2rem 4rem;
+    max-width: 860px; margin: 0 auto;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero .tag {
+    display: inline-block;
+    font-family: var(--mono); font-size: 11px;
+    background: rgba(88,166,255,.1); color: var(--accent);
+    border: 1px solid rgba(88,166,255,.25);
+    border-radius: 4px; padding: 2px 8px;
+    margin-bottom: 1.2rem; letter-spacing: .04em;
+  }
+  .hero h1 { font-size: clamp(1.5rem, 4vw, 2.2rem); font-weight: 700; line-height: 1.25; margin-bottom: 1rem; }
+  .hero h1 em { font-style: normal; color: var(--accent); }
+  .hero .subtitle { color: var(--muted); font-size: 14px; margin-bottom: 1.8rem; }
+  .hero .authors { font-size: 14px; color: var(--muted); margin-bottom: .4rem; }
+  .hero .authors strong { color: var(--text); }
+  .hero .meta { font-size: 13px; color: var(--muted); margin-bottom: 2rem; }
+
+  .btn-row { display: flex; flex-wrap: wrap; gap: .6rem; }
+  .btn {
+    display: inline-flex; align-items: center; gap: .4rem;
+    font-family: var(--mono); font-size: 12px; font-weight: 500;
+    padding: .45rem 1rem; border-radius: 6px; text-decoration: none;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); transition: border-color .15s, background .15s;
+  }
+  .btn:hover { border-color: var(--accent); background: rgba(88,166,255,.08); }
+  .btn.primary { background: var(--accent); color: #0d1117; border-color: var(--accent); }
+  .btn.primary:hover { background: #79c0ff; border-color: #79c0ff; }
+
+  /* STATS BAR */
+  .stats {
+    display: flex; flex-wrap: wrap; gap: 0;
+    border: 1px solid var(--border); border-radius: 8px;
+    overflow: hidden; margin: 2rem auto;
+    max-width: 860px;
+  }
+  .stat {
+    flex: 1; min-width: 140px;
+    padding: 1.2rem 1.5rem;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    text-align: center;
+  }
+  .stat:last-child { border-right: none; }
+  .stat .val { font-family: var(--mono); font-size: 1.8rem; font-weight: 700; color: var(--accent2); display: block; line-height: 1.1; }
+  .stat .lab { font-size: 12px; color: var(--muted); margin-top: .3rem; }
+
+  /* SECTIONS */
+  section { max-width: 860px; margin: 0 auto; padding: 3rem 2rem; border-bottom: 1px solid var(--border); }
+  section:last-of-type { border-bottom: none; }
+  h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 1.4rem; display: flex; align-items: center; gap: .5rem; }
+  h2 .sec-num { font-family: var(--mono); font-size: 11px; color: var(--accent); background: rgba(88,166,255,.1); border: 1px solid rgba(88,166,255,.25); border-radius: 3px; padding: 1px 6px; }
+  p { color: var(--muted); margin-bottom: 1rem; }
+  p strong { color: var(--text); }
+
+  /* PIPELINE */
+  .pipeline {
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    gap: 1rem; align-items: start; margin: 1.5rem 0;
+  }
+  .pipe-col { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+  .pipe-col h3 { font-size: 12px; font-family: var(--mono); color: var(--muted); margin-bottom: .8rem; text-transform: uppercase; letter-spacing: .06em; }
+  .pipe-step {
+    display: flex; align-items: center; gap: .5rem;
+    font-size: 13px; padding: .4rem .6rem; border-radius: 4px;
+    margin-bottom: .3rem;
+  }
+  .pipe-step .num { font-family: var(--mono); font-size: 11px; color: var(--muted); width: 18px; flex-shrink: 0; }
+  .pipe-step.host { background: rgba(240,136,62,.08); }
+  .pipe-step.storage { background: rgba(63,185,80,.08); }
+  .pipe-step.ndp-host { background: rgba(88,166,255,.08); }
+  .pipe-arrow { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: .3rem; padding-top: 2rem; }
+  .pipe-arrow span { font-family: var(--mono); font-size: 11px; color: var(--muted); writing-mode: initial; }
+  .badge { font-size: 10px; font-family: var(--mono); padding: 1px 5px; border-radius: 3px; margin-left: auto; flex-shrink: 0; }
+  .badge.bad { background: rgba(240,136,62,.15); color: var(--warn); }
+  .badge.good { background: rgba(63,185,80,.15); color: var(--accent2); }
+
+  /* RESULTS GRID */
+  .results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+  .result-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 1.2rem; text-align: center;
+  }
+  .result-card .metric { font-family: var(--mono); font-size: 1.6rem; font-weight: 700; display: block; line-height: 1.1; margin-bottom: .3rem; }
+  .result-card .desc { font-size: 12px; color: var(--muted); }
+  .green { color: var(--accent2); }
+  .blue { color: var(--accent); }
+  .orange { color: var(--warn); }
+
+  /* CODE BLOCK */
+  pre {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1.2rem; overflow-x: auto;
+    font-family: var(--mono); font-size: 12px; line-height: 1.6;
+    color: #cdd9e5; margin: 1rem 0;
+  }
+  code { font-family: var(--mono); font-size: 12px; }
+
+  /* TABLE */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 1rem 0; }
+  th { text-align: left; padding: .5rem .8rem; font-size: 11px; font-family: var(--mono); color: var(--muted); text-transform: uppercase; border-bottom: 1px solid var(--border); letter-spacing: .04em; }
+  td { padding: .5rem .8rem; border-bottom: 1px solid var(--border); color: var(--muted); }
+  td strong { color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+
+  /* REPO CARDS */
+  .repo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+  .repo-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1.2rem; text-decoration: none;
+    display: block; transition: border-color .15s;
+  }
+  .repo-card:hover { border-color: var(--accent); }
+  .repo-card .repo-name { font-family: var(--mono); font-size: 13px; color: var(--accent); margin-bottom: .4rem; }
+  .repo-card .repo-desc { font-size: 12px; color: var(--muted); }
+  .repo-card .repo-tag { display: inline-block; font-family: var(--mono); font-size: 10px; background: rgba(88,166,255,.1); color: var(--accent); border: 1px solid rgba(88,166,255,.2); border-radius: 3px; padding: 1px 5px; margin-top: .6rem; }
+
+  /* REF */
+  .ref-list { list-style: none; }
+  .ref-list li { font-size: 13px; color: var(--muted); padding: .5rem 0; border-bottom: 1px solid var(--border); display: flex; gap: .6rem; }
+  .ref-list li:last-child { border-bottom: none; }
+  .ref-num { font-family: var(--mono); font-size: 11px; color: var(--accent); flex-shrink: 0; padding-top: 2px; }
+
+  /* FOOTER */
+  footer { text-align: center; padding: 2rem; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); }
+
+  @media (max-width: 640px) {
+    .pipeline { grid-template-columns: 1fr; }
+    .pipe-arrow { transform: rotate(90deg); margin: .5rem auto; width: 40px; }
+    .repo-grid { grid-template-columns: 1fr; }
+    .stats .stat { min-width: 50%; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">NDP · YOLO</span>
+  <a href="#motivation">Motivation</a>
+  <a href="#design">Design</a>
+  <a href="#results">Results</a>
+  <a href="#artifacts">Artifacts</a>
+  <a href="#references">References</a>
+  <span class="spacer"></span>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="tag">Master's Thesis · Pusan National University · 2026</div>
+  <h1>Optimizing YOLO Video Preprocessing Pipeline via <em>NVMe-oF Based Near-Data Processing</em></h1>
+  <p class="subtitle">Offloading video decoding, frame sampling, and letterbox resizing to the storage node — delivering only preprocessed frames to the host.</p>
+  <p class="authors"><strong>Kitae Kim</strong>, Sungyong Ahn</p>
+  <p class="meta">Dept. of Information Convergence Engineering, Pusan National University &nbsp;·&nbsp; kt8619@pusan.ac.kr</p>
+  <div class="btn-row">
+    <a class="btn primary" href="paper.pdf" target="_blank">📄 Thesis (PDF)</a>
+    <a class="btn" href="kcc2026.pdf" target="_blank">📄 KCC 2026 Paper</a>
+    <a class="btn" href="https://github.com/kimikitae/darknet-for-ndp" target="_blank">⚙ Host Code</a>
+    <a class="btn" href="https://github.com/kimikitae/near_data_processing_for_video/tree/video_processing" target="_blank">🗄 Storage Code</a>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="stat"><span class="val">11×</span><div class="lab">E2E Latency Reduction</div></div>
+  <div class="stat"><span class="val">92%</span><div class="lab">Data Transfer Reduction</div></div>
+  <div class="stat"><span class="val">88%</span><div class="lab">Host Memory Reduction</div></div>
+  <div class="stat"><span class="val">95%</span><div class="lab">Host Preprocessing Bottleneck (Baseline)</div></div>
+</div>
+
+<!-- MOTIVATION -->
+<section id="motivation">
+  <h2><span class="sec-num">01</span> Motivation</h2>
+  <p>Smart city and security infrastructure increasingly rely on high-resolution CCTV feeds for real-time object detection. YOLO-based DNN models achieve high inference throughput — yet <strong>the preprocessing pipeline dominates end-to-end latency</strong>, not inference itself.</p>
+  <p>In a disaggregated storage environment, the host must first transfer the <strong>entire compressed video file over the network</strong> before any frame can be decoded or filtered. For a 4K 60fps H.264 stream, the host then decodes every frame and converts it to float32 CHW format — an operation (<code>mat_to_image</code>) that alone accounts for <strong>53% of total pipeline time</strong> in Darknet.</p>
+  <p>This creates two compounding bottlenecks: <strong>unnecessary data movement</strong> (full video transferred even though only sampled frames are needed) and <strong>host CPU saturation</strong> from preprocessing that leaves GPU inference starved.</p>
+</section>
+
+<!-- DESIGN -->
+<section id="design">
+  <h2><span class="sec-num">02</span> Proposed Design</h2>
+  <p>We extend SPDK's NVMe-oF target with two vendor-specific NVMe commands to offload preprocessing to the storage node. The host sends file extents via <code>0xC0</code>; the storage node decodes, samples, and compresses; the host retrieves JPEG frames via <code>0xC2</code> and runs GPU inference.</p>
+
+  <div class="pipeline">
+    <div class="pipe-col">
+      <h3>Baseline (Host)</h3>
+      <div class="pipe-step host"><span class="num">1</span> Read compressed MP4 (NVMe-oF)</div>
+      <div class="pipe-step host"><span class="num">2</span> H.264 Decode (OpenCV/FFmpeg)</div>
+      <div class="pipe-step host"><span class="num">3</span> BGR → RGB</div>
+      <div class="pipe-step host"><span class="num">4</span> float32 norm + HWC→CHW <span class="badge bad">53% bottleneck</span></div>
+      <div class="pipe-step host"><span class="num">5</span> Letterbox resize (416×416)</div>
+      <div class="pipe-step host"><span class="num">6</span> GPU Inference</div>
+    </div>
+
+    <div class="pipe-arrow">
+      <span style="font-size:1.4rem; color:var(--accent)">→</span>
+      <span>NDP</span>
+    </div>
+
+    <div class="pipe-col">
+      <h3>NDP (Storage Node)</h3>
+      <div class="pipe-step storage"><span class="num">1</span> Read MP4 via NVMe SSD (local)</div>
+      <div class="pipe-step storage"><span class="num">2</span> H.264 Decode (FFmpeg)</div>
+      <div class="pipe-step storage"><span class="num">3</span> Frame Sampling (20%, 60→12 fps)</div>
+      <div class="pipe-step storage"><span class="num">4</span> YUV→RGB + Letterbox (416×416)</div>
+      <div class="pipe-step storage"><span class="num">5</span> JPEG Compress (quality 85)</div>
+      <div class="pipe-step ndp-host"><span class="num">6</span> 0xC2 transfer → Host</div>
+      <div class="pipe-step ndp-host"><span class="num">7</span> JPEG Decompress + float32 norm</div>
+      <div class="pipe-step ndp-host"><span class="num">8</span> GPU Inference <span class="badge good">host only</span></div>
+    </div>
+  </div>
+
+  <p>The storage node runs an isolated <strong>worker thread</strong> (pinned to cores 2–15) for FFmpeg decoding, keeping the SPDK reactor free for I/O polling. Results are serialized into a contiguous buffer with a frame-size header table, enabling O(1) frame access on the host.</p>
+
+  <h2 style="margin-top:2rem"><span class="sec-num">03</span> System Environment</h2>
+  <table>
+    <thead><tr><th></th><th>Host Node</th><th>Storage Node</th></tr></thead>
+    <tbody>
+      <tr><td>CPU</td><td><strong>AMD EPYC 9554</strong> (128 threads, 3.1GHz)</td><td><strong>Intel Xeon E5-2620 v4</strong> (32 threads)</td></tr>
+      <tr><td>RAM</td><td>755 GB</td><td>64 GB</td></tr>
+      <tr><td>GPU</td><td>NVIDIA RTX A6000</td><td>NVIDIA GeForce GTX 1050</td></tr>
+      <tr><td>Network</td><td colspan="2">Intel X540-AT2 10GbE (direct connection)</td></tr>
+      <tr><td>Storage</td><td>—</td><td>Intel SSD P4500 1TB NVMe U.2</td></tr>
+      <tr><td>OS</td><td>Ubuntu 24.04</td><td>Ubuntu 22.04 + SPDK 24.09</td></tr>
+      <tr><td>Model</td><td colspan="2">YOLOv7-tiny · 416×416 · Darknet</td></tr>
+      <tr><td>Video</td><td colspan="2">4K (3840×2160) · 60fps · H.264 · urban pedestrian scene</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- RESULTS -->
+<section id="results">
+  <h2><span class="sec-num">04</span> Results</h2>
+
+  <div class="results-grid">
+    <div class="result-card"><span class="metric green">11.1–11.6×</span><div class="desc">E2E latency reduction<br>(NDP w/ sampling vs Baseline)</div></div>
+    <div class="result-card"><span class="metric green">92–93%</span><div class="desc">Storage-to-host data transfer reduction</div></div>
+    <div class="result-card"><span class="metric green">88–91%</span><div class="desc">Host memory reduction</div></div>
+    <div class="result-card"><span class="metric blue">81–88%</span><div class="desc">System-wide memory reduction (host + storage)</div></div>
+  </div>
+
+  <p><strong>End-to-end latency</strong> (testc_15s, 15s 4K clip): Baseline 81.9s → NDP w/ sampling <strong>5.9s</strong>. Speedup is stable across all input lengths (15s–10min) because both pipelines scale linearly with frame count.</p>
+  <p><strong>Preprocessing breakdown</strong> (10min input): Baseline preprocessing accounts for <strong>95.0%</strong> of total time (3019.8s of 3178.1s). NDP offloads this to the storage node — the host performs only JPEG decompression and float32 normalization.</p>
+  <p><strong>Data transfer</strong>: NDP with sampling reduces transfer by 92–93% consistently, independent of input length. Without sampling, 58–60% reduction is achieved from JPEG compression alone.</p>
+
+  <table>
+    <thead><tr><th>Input</th><th>Baseline (s)</th><th>NDP w/o sampling (s)</th><th>NDP w/ sampling (s)</th><th>Speedup</th></tr></thead>
+    <tbody>
+      <tr><td>15s</td><td>81.9</td><td>8.6</td><td><strong>5.9</strong></td><td><strong>13.9×</strong></td></tr>
+      <tr><td>30s</td><td>158.7</td><td>16.3</td><td><strong>12.9</strong></td><td><strong>12.3×</strong></td></tr>
+      <tr><td>1min</td><td>313.3</td><td>33.4</td><td><strong>26.2</strong></td><td><strong>12.0×</strong></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ARTIFACTS -->
+<section id="artifacts">
+  <h2><span class="sec-num">05</span> Artifacts</h2>
+  <div class="repo-grid">
+    <a class="repo-card" href="https://github.com/kimikitae/darknet-for-ndp" target="_blank">
+      <div class="repo-name">kimikitae / darknet-for-ndp</div>
+      <div class="repo-desc">Host-side implementation — modified Darknet with NVMe passthru (0xC0 / 0xC2) and NDP inference pipeline integration.</div>
+      <span class="repo-tag">C · CUDA · NVMe ioctl</span>
+    </a>
+    <a class="repo-card" href="https://github.com/kimikitae/near_data_processing_for_video/tree/video_processing" target="_blank">
+      <div class="repo-name">kimikitae / near_data_processing_for_video</div>
+      <div class="repo-desc">Storage-side SPDK target extension — custom NVMe command handler, FFmpeg-based decode/sample/letterbox pipeline, JPEG serialization.</div>
+      <span class="repo-tag">C · SPDK · FFmpeg · libjpeg</span>
+    </a>
+  </div>
+
+  <p style="margin-top:1.2rem"><strong>Dataset:</strong> 4K 60fps urban pedestrian video (H.264, re-encoded from VP9 source). Test clips: 15s (45.2MB), 30s (95.1MB), 1min (216.1MB), 10min (2.12GB).</p>
+  <p><strong>Model:</strong> YOLOv7-tiny weights (<a href="https://github.com/WongKinYiu/yolov7" target="_blank" style="color:var(--accent)">WongKinYiu/yolov7</a>), input 416×416, letterbox applied.</p>
+
+  <pre><code># Storage node — start SPDK target
+sudo build/bin/nvmf_tgt &amp;
+sh conf_subsystem.sh
+
+# Host node — run NDP inference
+sudo ./darknet detector ndp_test data/coco.data cfg/yolov7-tiny.cfg \
+  yolov7-tiny.weights -dev /dev/nvme1n1 \
+  -file /mnt/ext4/testc_15s.mp4 -thresh 0.25 -letter_box</code></pre>
+</section>
+
+<!-- REFERENCES -->
+<section id="references">
+  <h2><span class="sec-num">06</span> References</h2>
+  <ul class="ref-list">
+    <li><span class="ref-num">[1]</span>A. Acharya et al., "Active disks: programming model, algorithms and evaluation," ACM SIGOPS Oper. Syst. Rev., vol. 32, no. 5, 1998.</li>
+    <li><span class="ref-num">[2]</span>B. Gu et al., "Biscuit: a framework for near-data processing of big data workloads," ACM SIGARCH Comput. Archit. News, vol. 44, no. 3, 2016.</li>
+    <li><span class="ref-num">[3]</span>S. Seshadri et al., "Willow: a user-programmable SSD," OSDI, 2014.</li>
+    <li><span class="ref-num">[4]</span>유승훈 외, "SPDK와 NVMe-over-Fabric을 이용한 Near-Data Processing 플랫폼 구축," KSC 2024.</li>
+    <li><span class="ref-num">[5]</span>Z. Zhao et al., "ISVDA: An in-storage processing accelerator for visual data analysis," ICCD 2024.</li>
+    <li><span class="ref-num">[6]</span>NVM Express, "NVM Express over Fabrics," nvmexpress.org.</li>
+    <li><span class="ref-num">[7]</span>NVM Express, "NVM Express TCP Transport Specification, Rev. 1.1," 2024.</li>
+    <li><span class="ref-num">[8]</span>C.-Y. Wang et al., "YOLOv7: Trainable bag-of-freebies sets new state-of-the-art for real-time object detectors," CVPR 2023.</li>
+    <li><span class="ref-num">[9]</span>J. Redmon, "Darknet: Open source neural networks in C," pjreddie.com, 2016.</li>
+    <li><span class="ref-num">[10]</span>Z. Guz et al., "Performance characterization of NVMe-over-fabrics storage disaggregation," ACM Trans. Storage, 2018.</li>
+    <li><span class="ref-num">[11]</span>Z. Yang et al., "SPDK: A development kit to build high performance storage applications," CloudCom 2017.</li>
+    <li><span class="ref-num">[12]</span>J. Redmon et al., "You only look once: Unified, real-time object detection," CVPR 2016.</li>
+    <li><span class="ref-num">[13]</span>J. Kowalczyk et al., "Performance of YOLO based traffic analysis in high resolution video stream," Procedia Comput. Sci., 2025.</li>
+  </ul>
+</section>
+
+<footer>
+  Kitae Kim · Pusan National University · 2026 &nbsp;·&nbsp;
+  <a href="mailto:kt8619@pusan.ac.kr" style="color:var(--accent)">kt8619@pusan.ac.kr</a>
+</footer>
+
+</body>
+</html>
